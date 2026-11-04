@@ -418,6 +418,20 @@ struct ClaudeHooksTests {
 
         #expect(payload.terminalApp == "Claude.app")
         #expect(payload.defaultJumpTarget.terminalApp == "Claude.app")
+        #expect(payload.defaultJumpTarget.claudeSessionID == "s1")
+    }
+
+    @Test
+    func claudeTerminalSessionsCarryNoClaudeDesktopSessionID() {
+        let payload = ClaudeHookPayload(
+            cwd: "/tmp/demo", hookEventName: .sessionStart, sessionID: "s1"
+        ).withRuntimeContext(
+            environment: ["TERM_PROGRAM": "ghostty"],
+            currentTTYProvider: { nil },
+            terminalLocatorProvider: { _ in (sessionID: nil, tty: nil, title: nil) }
+        )
+
+        #expect(payload.defaultJumpTarget.claudeSessionID == nil)
     }
 
     /// Verifies the `__CFBundleIdentifier=com.anthropic.claudefordesktop`

@@ -231,6 +231,7 @@ struct TerminalJumpService {
     private let warpTabCountReader: WarpTabCountReader
     private let warpKeystroker: KeystrokeInjector
     private let warpFrontmostChecker: WarpFrontmostChecker
+    private let claudeDesktopSessionResolver: (String) -> String?
 
     init(
         applicationResolver: @escaping ApplicationResolver = { bundleIdentifier in
@@ -251,6 +252,9 @@ struct TerminalJumpService {
             // updated via KVO that can lag the real frontmost transition).
             NSWorkspace.shared.frontmostApplication?.bundleIdentifier
                 == "dev.warp.Warp-Stable"
+        },
+        claudeDesktopSessionResolver: @escaping (String) -> String? = {
+            ClaudeDesktopSessionLocator().desktopSessionID(forCLISessionID: $0)
         }
     ) {
         self.applicationResolver = applicationResolver
@@ -262,6 +266,7 @@ struct TerminalJumpService {
         self.warpTabCountReader = warpTabCountReader
         self.warpKeystroker = warpKeystroker
         self.warpFrontmostChecker = warpFrontmostChecker
+        self.claudeDesktopSessionResolver = claudeDesktopSessionResolver
     }
 
     func jump(to target: JumpTarget) throws -> String {
@@ -361,8 +366,12 @@ struct TerminalJumpService {
                 try openAction(["-b", "com.openai.codex"])
                 return "Activated Codex.app."
             case "com.anthropic.claudefordesktop":
-                // Claude Desktop hosts the conversation in-app; there is no
-                // per-session deep link, so just bring the app forward.
+                if let cliSessionID = target.claudeSessionID, !cliSessionID.isEmpty,
+                   let desktopSessionID = claudeDesktopSessionResolver(cliSessionID),
+                   let url = ClaudeDesktopSessionLocator.continueURL(forDesktopSessionID: desktopSessionID) {
+                    try openAction([url])
+                    return "Focused the Claude session."
+                }
                 try openAction(["-b", "com.anthropic.claudefordesktop"])
                 return "Activated Claude."
             case "com.conductor.app":
