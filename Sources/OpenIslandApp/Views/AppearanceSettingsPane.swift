@@ -401,6 +401,7 @@ struct AppearanceSettingsPane: View {
         )
 
         HStack(spacing: 12) {
+            stateIndicatorCard(.pixel)
             stateIndicatorCard(.animatedDot)
             stateIndicatorCard(.bar)
             stateIndicatorCard(.glyph)
@@ -582,6 +583,7 @@ struct AppearanceSettingsPane: View {
 
     private func title(for option: IslandSessionStateIndicator) -> String {
         switch option {
+        case .pixel:       lang.t("settings.appearance.stateIndicator.pixel")
         case .animatedDot: lang.t("settings.appearance.stateIndicator.animatedDot")
         case .bar:         lang.t("settings.appearance.stateIndicator.bar")
         case .glyph:       lang.t("settings.appearance.stateIndicator.glyph")
@@ -1272,6 +1274,9 @@ private struct SessionListLivePreviewRow: View {
     @ViewBuilder
     private var indicatorView: some View {
         switch indicator {
+        case .pixel:
+            PixelAgentGlyph(tint: tint, mood: pixelMood)
+                .frame(width: 20, height: 20)
         case .animatedDot:
             Circle()
                 .fill(tint)
@@ -1285,6 +1290,15 @@ private struct SessionListLivePreviewRow: View {
                 .frame(width: 20, height: 20)
         case .tint:
             EmptyView()
+        }
+    }
+
+    private var pixelMood: PixelAgentGlyph.Mood {
+        switch item.phase {
+        case .idle: .idle
+        case .running: .running
+        case .approval, .answer: .waiting
+        case .done: .done
         }
     }
 
@@ -1323,7 +1337,7 @@ private struct SessionListLivePreviewRow: View {
         switch indicator {
         case .bar: max(28, sideInset)
         case .tint: sideInset
-        case .animatedDot, .glyph: sideInset
+        case .pixel, .animatedDot, .glyph: sideInset
         }
     }
 
@@ -1331,7 +1345,7 @@ private struct SessionListLivePreviewRow: View {
         switch indicator {
         case .bar: max(28, sideInset)
         case .tint: sideInset
-        case .animatedDot, .glyph: sideInset + 30
+        case .pixel, .animatedDot, .glyph: sideInset + 30
         }
     }
 }
@@ -1397,6 +1411,8 @@ private struct StateIndicatorPreview: View {
     private var indicator: some View {
         let color = Color(hex: AgentTool.codex.brandColorHex) ?? V6Palette.paper
         switch option {
+        case .pixel:
+            PixelAgentGlyph(tint: color, mood: .done)
         case .animatedDot:
             Circle()
                 .fill(color)

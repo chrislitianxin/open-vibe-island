@@ -57,7 +57,7 @@ struct IslandAppearancePreferences: Equatable, Sendable {
     var rightSlot: IslandRightSlot = .count
     var centerLabel: IslandCenterLabel = .agentAction
     var usageDisplay: IslandUsageDisplay = .compact
-    var sessionStateIndicator: IslandSessionStateIndicator = .animatedDot
+    var sessionStateIndicator: IslandSessionStateIndicator = .pixel
     var sessionGroup: IslandSessionGroup = .none
     var sessionSort: IslandSessionSort = .attention
     var completedStaleThreshold: IslandCompletedStaleThreshold = .fiveMinutes
@@ -71,6 +71,7 @@ enum IslandUsageDisplay: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum IslandSessionStateIndicator: String, CaseIterable, Identifiable, Sendable {
+    case pixel
     case animatedDot
     case bar
     case glyph
