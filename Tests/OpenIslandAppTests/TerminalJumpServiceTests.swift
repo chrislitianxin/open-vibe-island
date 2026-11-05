@@ -481,6 +481,83 @@ struct TerminalJumpServiceTests {
         #expect(openedArguments.values == [["codex://threads/\(threadID)"]])
     }
 
+    private func claudeDesktopService(
+        openedArguments: OpenedArgumentsBox,
+        resolver: @escaping (String) -> String?
+    ) -> TerminalJumpService {
+        TerminalJumpService(
+            applicationResolver: { bundleIdentifier in
+                bundleIdentifier == "com.anthropic.claudefordesktop" ? URL(fileURLWithPath: "/Applications/Claude.app") : nil
+            },
+            appRunningChecker: { $0 == "com.anthropic.claudefordesktop" },
+            openAction: { openedArguments.values.append($0) },
+            appleScriptRunner: { _ in "" },
+            claudeDesktopSessionResolver: resolver
+        )
+    }
+
+    @Test
+    func claudeDesktopJumpOpensMatchingDesktopSession() throws {
+        let openedArguments = OpenedArgumentsBox()
+        let cliSessionID = "ff136209-d46f-450d-8a4b-8bd62eea0808"
+        let service = claudeDesktopService(openedArguments: openedArguments) {
+            $0 == cliSessionID ? "local_932f060a-80e7-4ce0-95af-26ab703282b1" : nil
+        }
+
+        let result = try service.jump(
+            to: JumpTarget(
+                terminalApp: "Claude.app",
+                workspaceName: "dev",
+                paneTitle: "",
+                claudeSessionID: cliSessionID
+            )
+        )
+
+        #expect(result == "Focused the Claude session.")
+        #expect(openedArguments.values == [["claude://code/continue?session=local_932f060a-80e7-4ce0-95af-26ab703282b1"]])
+    }
+
+    @Test
+    func claudeDesktopJumpActivatesAppWhenSessionIsUnknown() throws {
+        let openedArguments = OpenedArgumentsBox()
+        let service = claudeDesktopService(openedArguments: openedArguments) { _ in nil }
+
+        let result = try service.jump(
+            to: JumpTarget(
+                terminalApp: "Claude.app",
+                workspaceName: "dev",
+                paneTitle: "",
+                claudeSessionID: "ff136209-d46f-450d-8a4b-8bd62eea0808"
+            )
+        )
+
+        #expect(result == "Activated Claude.")
+        #expect(openedArguments.values == [["-b", "com.anthropic.claudefordesktop"]])
+    }
+
+    @Test
+    func claudeDesktopLocatorPicksUnarchivedRecordForCLISession() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("claude-desktop-locator-\(UUID().uuidString)", isDirectory: true)
+        let org = root.appendingPathComponent("account/org", isDirectory: true)
+        try FileManager.default.createDirectory(at: org, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        func write(_ sessionID: String, cli: String, archived: Bool) throws {
+            let json = #"{"sessionId":"\#(sessionID)","cliSessionId":"\#(cli)","isArchived":\#(archived)}"#
+            try Data(json.utf8).write(to: org.appendingPathComponent("\(sessionID).json"))
+        }
+        try write("local_archived", cli: "cli-a", archived: true)
+        try write("local_live", cli: "cli-b", archived: false)
+        try write("local_other", cli: "cli-c", archived: false)
+
+        let locator = ClaudeDesktopSessionLocator(sessionsRoot: root)
+
+        #expect(locator.desktopSessionID(forCLISessionID: "cli-b") == "local_live")
+        #expect(locator.desktopSessionID(forCLISessionID: "cli-a") == nil)
+        #expect(locator.desktopSessionID(forCLISessionID: "missing") == nil)
+    }
+
     @Test
     func traeCNJumpFallsBackToWorkspaceViaTraeCLI() throws {
         let openedArguments = OpenedArgumentsBox()
