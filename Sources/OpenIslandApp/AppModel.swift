@@ -25,6 +25,7 @@ final class AppModel {
     private static let islandCenterLabelDefaultsKey = "appearance.island.v6.centerLabel"
     private static let showCodexUsageDefaultsKey = "app.showCodexUsage"
     private static let completionReplyEnabledDefaultsKey = "feature.completionReply.enabled"
+    private static let promptHotKeysEnabledDefaultsKey = "feature.promptHotKeys.enabled"
     private static let suppressFrontmostNotificationsDefaultsKey = "app.suppressFrontmostNotifications"
     private static let legacyIslandSessionStateIndicatorDefaultsKey = "appearance.island.v8.stateIndicator"
     private static let legacyIslandSessionGroupDefaultsKey = "appearance.island.v8.sessionGroup"
@@ -309,6 +310,13 @@ final class AppModel {
             refreshOverlayPlacementIfVisible()
         }
     }
+    var promptHotKeysEnabled: Bool = true {
+        didSet {
+            guard hasFinishedInit, promptHotKeysEnabled != oldValue else { return }
+            UserDefaults.standard.set(promptHotKeysEnabled, forKey: Self.promptHotKeysEnabledDefaultsKey)
+        }
+    }
+    @ObservationIgnored private lazy var promptHotKeys = PromptHotKeyCoordinator(model: self)
     var suppressFrontmostNotifications: Bool = true {
         didSet {
             guard hasFinishedInit, suppressFrontmostNotifications != oldValue else { return }
@@ -645,6 +653,7 @@ final class AppModel {
             Self.hapticFeedbackEnabledDefaultsKey: false,
             Self.keepNotchOpenUntilDecisionDefaultsKey: false,
             Self.completionReplyEnabledDefaultsKey: false,
+            Self.promptHotKeysEnabledDefaultsKey: true,
             Self.suppressFrontmostNotificationsDefaultsKey: true,
         ])
         isSoundMuted = UserDefaults.standard.bool(forKey: Self.soundMutedDefaultsKey)
@@ -661,6 +670,7 @@ final class AppModel {
             )
         }
         completionReplyEnabled = UserDefaults.standard.bool(forKey: Self.completionReplyEnabledDefaultsKey)
+        promptHotKeysEnabled = UserDefaults.standard.bool(forKey: Self.promptHotKeysEnabledDefaultsKey)
         launchAtLoginEnabled = LaunchAtLoginService.shared.isEnabled
         appearanceSettingsProfile = IslandAppearanceDisplayProfile(
             rawValue: UserDefaults.standard.string(forKey: Self.appearanceProfileSettingsDefaultsKey) ?? ""
@@ -1124,6 +1134,7 @@ final class AppModel {
             return
         }
         hasStarted = true
+        promptHotKeys.start()
 
         if loadRuntimeState {
             isResolvingInitialLiveSessions = true

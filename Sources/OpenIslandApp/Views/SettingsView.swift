@@ -224,6 +224,13 @@ struct GeneralSettingsPane: View {
                     get: { model.completionReplyEnabled },
                     set: { model.completionReplyEnabled = $0 }
                 ))
+                Toggle(isOn: Binding(
+                    get: { model.promptHotKeysEnabled },
+                    set: { model.promptHotKeysEnabled = $0 }
+                )) {
+                    Text(lang.t("settings.general.promptHotKeys"))
+                    Text(lang.t("settings.general.promptHotKeysDesc"))
+                }
                 Toggle(lang.t("settings.general.suppressFrontmostNotifications"), isOn: Binding(
                     get: { model.suppressFrontmostNotifications },
                     set: { model.suppressFrontmostNotifications = $0 }
