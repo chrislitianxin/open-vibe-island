@@ -431,10 +431,10 @@ struct IslandPanelView: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: Self.headerControlButtonSize, height: Self.headerControlButtonSize)
-                .background(.white.opacity(0.08), in: Circle())
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel ?? systemName)
@@ -579,8 +579,6 @@ struct IslandPanelView: View {
                     }
             } else {
                 VStack(spacing: 0) {
-                    sessionPanelHeader(referenceDate: referenceDate)
-
                     ScrollView(.vertical) {
                         sessionRowsContent(referenceDate: referenceDate)
                     }
@@ -597,10 +595,6 @@ struct IslandPanelView: View {
     @ViewBuilder
     private func sessionListContent(referenceDate: Date) -> some View {
         VStack(spacing: 0) {
-            if !isNotificationMode {
-                sessionPanelHeader(referenceDate: referenceDate)
-            }
-
             if isNotificationMode, let session = model.activeIslandCardSession {
                 IslandSessionRow(
                     session: session,
@@ -716,32 +710,6 @@ struct IslandPanelView: View {
         }
     }
 
-    private func sessionPanelHeader(referenceDate: Date) -> some View {
-        let overview = sessionOverviewItems(referenceDate: referenceDate)
-
-        return HStack(spacing: 8) {
-            Text(lang.t("island.sessionList.title").uppercased())
-                .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
-                .tracking(1.4)
-                .foregroundStyle(V6Palette.paper.opacity(0.55))
-
-            ViewThatFits(in: .horizontal) {
-                sessionOverviewView(overview, compact: false)
-                sessionOverviewView(overview, compact: true)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.leading, sessionListSideInset)
-        .padding(.trailing, sessionListSideInset)
-        .frame(height: 36)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(.white.opacity(0.055))
-                .frame(height: 1)
-        }
-    }
-
     private var sessionPanelFooter: some View {
         Color.clear
             .frame(height: 10)
@@ -750,72 +718,6 @@ struct IslandPanelView: View {
                 .fill(.white.opacity(0.055))
                 .frame(height: 1)
         }
-    }
-
-    private func sessionOverviewItems(referenceDate: Date) -> [SessionOverviewItem] {
-        let sessions = model.islandListSessions
-        guard !sessions.isEmpty else { return [] }
-
-        let threshold = model.completedStaleThreshold.seconds
-        let waiting = sessions.filter(\.phase.requiresAttention).count
-        let running = sessions.filter { $0.phase == .running }.count
-        let done = sessions.filter {
-            $0.phase == .completed
-                && !isIdleSessionOverviewItem($0, referenceDate: referenceDate, threshold: threshold)
-        }.count
-        let idle = sessions.filter {
-            isIdleSessionOverviewItem($0, referenceDate: referenceDate, threshold: threshold)
-        }.count
-
-        return [
-            SessionOverviewItem(id: "total", title: lang.t("island.sessionOverview.total"), compactTitle: "", count: sessions.count, tint: nil),
-            SessionOverviewItem(id: "waiting", title: lang.t("island.sessionOverview.waiting"), compactTitle: lang.t("island.sessionOverview.waitingCompact"), count: waiting, tint: IslandDesignPalette.Status.waitingAggregate),
-            SessionOverviewItem(id: "running", title: lang.t("island.sessionOverview.running"), compactTitle: lang.t("island.sessionOverview.runningCompact"), count: running, tint: IslandDesignPalette.Status.running),
-            SessionOverviewItem(id: "done", title: lang.t("island.sessionOverview.done"), compactTitle: lang.t("island.sessionOverview.done"), count: done, tint: IslandDesignPalette.Status.completed),
-            SessionOverviewItem(id: "idle", title: lang.t("island.sessionOverview.idle"), compactTitle: lang.t("island.sessionOverview.idle"), count: idle, tint: IslandDesignPalette.Status.idle),
-        ].filter { $0.id == "total" || $0.count > 0 }
-    }
-
-    private func isIdleSessionOverviewItem(
-        _ session: AgentSession,
-        referenceDate: Date,
-        threshold: TimeInterval
-    ) -> Bool {
-        guard session.phase == .completed else { return false }
-        return session.isStaleCompletedForIsland(at: referenceDate, threshold: threshold)
-            || session.islandPresence(at: referenceDate) == .inactive
-    }
-
-    private func sessionOverviewView(_ items: [SessionOverviewItem], compact: Bool) -> some View {
-        HStack(spacing: compact ? 7 : 9) {
-            ForEach(items) { item in
-                sessionOverviewMetric(item, compact: compact)
-            }
-        }
-        .lineLimit(1)
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private func sessionOverviewMetric(_ item: SessionOverviewItem, compact: Bool) -> some View {
-        HStack(spacing: 4) {
-            if let tint = item.tint {
-                Circle()
-                    .fill(tint)
-                    .frame(width: 5.5, height: 5.5)
-            }
-
-            Text(sessionOverviewMetricTitle(item, compact: compact))
-                .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
-                .foregroundStyle(item.tint == nil ? V6Palette.paper.opacity(0.34) : V6Palette.paper.opacity(0.48))
-        }
-    }
-
-    private func sessionOverviewMetricTitle(_ item: SessionOverviewItem, compact: Bool) -> String {
-        if item.id == "total" {
-            return compact ? "\(item.count)" : "\(item.count) \(item.title)"
-        }
-
-        return "\(item.count) \(compact ? item.compactTitle : item.title)"
     }
 
     private func sessionSectionHeader(_ section: IslandSessionSection) -> some View {
@@ -1070,7 +972,7 @@ struct IslandPanelView: View {
         _ providers: [UsageProviderPresentation],
         layout: UsageChipLayout
     ) -> some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 14) {
             ForEach(providers) { provider in
                 compactUsageChip(provider, layout: layout)
             }
@@ -1088,15 +990,18 @@ struct IslandPanelView: View {
             : (provider.peakWindow.map { [$0] } ?? [])
 
         return HStack(spacing: 6) {
-            Text(layout.usesShortTitle ? provider.shortTitle : provider.title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.74))
+            UsageProviderIcon(provider: provider, showsTitle: !layout.usesShortTitle)
 
-            ForEach(windows) { window in
+            ForEach(Array(windows.enumerated()), id: \.element.id) { index, window in
+                if index > 0 {
+                    Rectangle()
+                        .fill(.white.opacity(0.22))
+                        .frame(width: 1, height: 11)
+                }
                 HStack(spacing: 4) {
                     Text(window.label)
-                        .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.42))
+                        .font(.system(size: 11.5, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.9))
 
                     Text("\(window.roundedUsedPercentage)%")
                         .font(.system(size: 11.5, weight: .bold, design: .monospaced))
@@ -1105,20 +1010,13 @@ struct IslandPanelView: View {
                     if layout.showsRemaining,
                        let resetsAt = window.resetsAt,
                        let remaining = remainingDurationString(until: resetsAt) {
-                        Text("· \(remaining)")
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.34))
+                        Text(remaining)
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.42))
                     }
                 }
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(.white.opacity(0.055), in: Capsule())
-        .overlay(
-            Capsule()
-                .strokeBorder(.white.opacity(0.06), lineWidth: 1)
-        )
         .help(usageHelpText(for: provider))
     }
 
@@ -1146,11 +1044,11 @@ struct IslandPanelView: View {
     private func usageColor(for percentage: Double) -> Color {
         switch percentage {
         case 90...:
-            .red.opacity(0.95)
-        case 70..<90:
-            .orange.opacity(0.95)
+            Color(red: 1.0, green: 0.33, blue: 0.33)
+        case 50..<90:
+            Color(red: 1.0, green: 0.62, blue: 0.25)
         default:
-            .green.opacity(0.95)
+            Color(red: 0.3, green: 0.85, blue: 0.45)
         }
     }
 
@@ -1174,7 +1072,36 @@ struct IslandPanelView: View {
             formatter.maximumUnitCount = 1
         }
 
-        return formatter.string(from: interval)
+        return formatter.string(from: interval)?.replacingOccurrences(of: " ", with: "")
+    }
+}
+
+private struct UsageProviderIcon: View {
+    let provider: UsageProviderPresentation
+    let showsTitle: Bool
+
+    var body: some View {
+        switch provider.id {
+        case "claude":
+            Image(systemName: "asterisk")
+                .font(.system(size: 9, weight: .black))
+                .foregroundStyle(.white)
+                .frame(width: 15, height: 15)
+                .background(
+                    Color(hex: AgentTool.claudeCode.brandColorHex) ?? .orange,
+                    in: RoundedRectangle(cornerRadius: 4, style: .continuous)
+                )
+        default:
+            if showsTitle {
+                Text(provider.title)
+                    .font(.system(size: 11.5, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.9))
+            } else {
+                Text(provider.shortTitle)
+                    .font(.system(size: 11.5, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.9))
+            }
+        }
     }
 }
 
@@ -1237,14 +1164,6 @@ private struct OpenedHeaderMetrics {
     let centerGapWidth: CGFloat
     let rightUsageWidth: CGFloat
     let rightLaneWidth: CGFloat
-}
-
-private struct SessionOverviewItem: Identifiable {
-    let id: String
-    let title: String
-    let compactTitle: String
-    let count: Int
-    let tint: Color?
 }
 
 // MARK: - Session row (opened state)
@@ -1338,7 +1257,7 @@ private struct IslandSessionRow: View {
         HStack(alignment: .top, spacing: 10) {
             if showsLeadingStatusIndicator {
                 statusIndicator(for: presence)
-                    .frame(width: 20, alignment: .top)
+                    .frame(width: stateIndicator == .pixel ? 30 : 20, alignment: .top)
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -1369,9 +1288,14 @@ private struct IslandSessionRow: View {
                     sideBadge(terminalBadge)
                 }
                 Text(session.spotlightAgeBadge)
-                    .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                    .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(summaryAgeColor(for: presence))
-                    .frame(minWidth: 30, alignment: .trailing)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        .white.opacity(0.07),
+                        in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    )
                 detailToggleButton(isOpen: showsDetail)
                     .opacity(showsDetail || isHighlighted || presentation == .notification ? 1 : 0)
                 if let onDismiss {
@@ -1471,8 +1395,22 @@ private struct IslandSessionRow: View {
         }
     }
 
+    private var agentBrandColor: Color {
+        Color(hex: session.tool.brandColorHex) ?? V6Palette.paper
+    }
+
     private var agentBadge: some View {
-        sideBadge(agentBadgeTitle)
+        Text(agentBadgeTitle)
+            .font(.system(size: 10.5, weight: .medium))
+            .foregroundStyle(agentBrandColor.opacity(presentation == .notification ? 0.75 : 0.9))
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(
+                agentBrandColor.opacity(0.16),
+                in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+            )
     }
 
     private func sideBadge(_ title: String) -> some View {
@@ -1575,7 +1513,9 @@ private struct IslandSessionRow: View {
             max(28, sideInset)
         case .tint:
             sideInset
-        case .pixel, .animatedDot, .glyph:
+        case .pixel:
+            sideInset + 40
+        case .animatedDot, .glyph:
             sideInset + 30
         }
     }
@@ -1589,7 +1529,7 @@ private struct IslandSessionRow: View {
     }
 
     private var summaryTitleFont: Font {
-        .system(size: presentation == .notification ? 13.2 : (isActionable ? 13.8 : 13.2), weight: .semibold)
+        .system(size: presentation == .notification ? 13.8 : 14, weight: .semibold)
     }
 
     private func summaryPromptColor(for presence: IslandSessionPresence) -> Color {
@@ -1988,18 +1928,14 @@ private struct IslandSessionRow: View {
         let tint = statusTint(for: presence)
         switch stateIndicator {
         case .pixel:
-            if presence == .inactive && !session.phase.requiresAttention {
-                Circle()
-                    .fill(tint.opacity(0.7))
-                    .frame(width: 7, height: 7)
-                    .frame(width: 20, height: 20)
-            } else {
-                PixelAgentGlyph(
-                    tint: tint,
-                    mood: PixelAgentGlyph.Mood(phase: session.phase, presence: presence)
-                )
-                .frame(width: 20, height: 20)
+            let mood = PixelAgentGlyph.Mood(phase: session.phase, presence: presence)
+            HStack(alignment: .bottom, spacing: 3) {
+                PixelAgentGlyph(tint: agentBrandColor, mood: mood)
+                if let mark = PixelStatusMark(phase: session.phase, presence: presence) {
+                    PixelStatusMarkView(mark: mark, tint: agentBrandColor)
+                }
             }
+            .frame(width: 30, height: 22, alignment: .leading)
         case .animatedDot:
             if let interval = stateIndicator.timelineInterval(presence: presence, isActionable: isActionable) {
                 TimelineView(.periodic(from: .now, by: interval)) { context in
@@ -2226,17 +2162,8 @@ private struct StructuredQuestionPromptView: View {
                 }
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.white.opacity(0.03))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(.white.opacity(0.05))
-        )
     }
 
     // MARK: - Per-question row

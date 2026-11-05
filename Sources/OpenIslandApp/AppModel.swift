@@ -1313,6 +1313,12 @@ final class AppModel {
     ) {
         state = SessionState(sessions: snapshot.sessions)
         selectedSessionID = snapshot.selectedSessionID ?? snapshot.sessions.first?.id
+        if hooks.claudeUsageSnapshot == nil {
+            hooks.claudeUsageSnapshot = ClaudeUsageSnapshot(
+                fiveHour: ClaudeUsageWindow(usedPercentage: 11, resetsAt: .now.addingTimeInterval(4 * 3_600 + 61)),
+                sevenDay: ClaudeUsageWindow(usedPercentage: 73, resetsAt: .now.addingTimeInterval(14 * 3_600 + 14 * 60 + 30))
+            )
+        }
         lastActionMessage = "Loaded debug scenario: \(snapshot.title)."
         harnessRuntimeMonitor?.recordMilestone("scenarioLoaded", message: snapshot.title)
 

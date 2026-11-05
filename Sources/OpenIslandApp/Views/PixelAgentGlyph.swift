@@ -97,3 +97,47 @@ extension PixelAgentGlyph.Mood {
         }
     }
 }
+
+enum PixelStatusMark: Equatable {
+    case question
+    case alert
+    case check
+
+    init?(phase: SessionPhase, presence: IslandSessionPresence) {
+        switch phase {
+        case .waitingForAnswer: self = .question
+        case .waitingForApproval: self = .alert
+        case .completed where presence != .inactive: self = .check
+        case .completed, .running: return nil
+        }
+    }
+
+    var rows: [String] {
+        switch self {
+        case .question: [".##.", "#..#", "..#.", ".#..", "....", ".#.."]
+        case .alert: [".#.", ".#.", ".#.", ".#.", "...", ".#."]
+        case .check: [".....", "....#", "...#.", "#.#..", ".#...", "....."]
+        }
+    }
+}
+
+struct PixelStatusMarkView: View {
+    let mark: PixelStatusMark
+    let tint: Color
+    var pixel: CGFloat = 2
+
+    var body: some View {
+        let rows = mark.rows.map(Array.init)
+        Canvas { context, _ in
+            for (y, row) in rows.enumerated() {
+                for (x, cell) in row.enumerated() where cell == "#" {
+                    context.fill(
+                        Path(CGRect(x: CGFloat(x) * pixel, y: CGFloat(y) * pixel, width: pixel, height: pixel)),
+                        with: .color(tint)
+                    )
+                }
+            }
+        }
+        .frame(width: CGFloat(rows[0].count) * pixel, height: CGFloat(rows.count) * pixel)
+    }
+}
