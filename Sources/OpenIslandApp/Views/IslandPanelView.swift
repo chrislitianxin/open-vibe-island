@@ -1257,7 +1257,7 @@ private enum IslandSessionRowPresentation {
 private struct IslandSessionRow: View {
     let session: AgentSession
     let referenceDate: Date
-    var stateIndicator: IslandSessionStateIndicator = .animatedDot
+    var stateIndicator: IslandSessionStateIndicator = .pixel
     var completedStaleThreshold: TimeInterval = AgentSession.staleCompletedDisplayThreshold
     var isActionable: Bool = false
     var useDrawingGroup: Bool = true
@@ -1304,11 +1304,10 @@ private struct IslandSessionRow: View {
                 }
             }
         }
-        .background(rowFillColor(for: presence))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(.white.opacity(0.045))
-                .frame(height: 1)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(rowFillColor(for: presence))
+                .padding(.horizontal, presentation == .notification ? 0 : max(6, sideInset - 10))
         }
         .overlay(alignment: .leading) {
             if showsLeadingStatusBar {
@@ -1374,6 +1373,7 @@ private struct IslandSessionRow: View {
                     .foregroundStyle(summaryAgeColor(for: presence))
                     .frame(minWidth: 30, alignment: .trailing)
                 detailToggleButton(isOpen: showsDetail)
+                    .opacity(showsDetail || isHighlighted || presentation == .notification ? 1 : 0)
                 if let onDismiss {
                     DismissButton(action: onDismiss)
                 }
@@ -1472,27 +1472,21 @@ private struct IslandSessionRow: View {
     }
 
     private var agentBadge: some View {
-        let tint = Color(hex: session.tool.brandColorHex) ?? V6Palette.paper
-        return Text(agentBadgeTitle)
-            .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
-            .foregroundStyle(tint.opacity(notificationChromeOpacity))
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(tint.opacity(notificationBadgeFillOpacity), in: Capsule())
-            .overlay(Capsule().stroke(tint.opacity(notificationBadgeStrokeOpacity), lineWidth: 1))
+        sideBadge(agentBadgeTitle)
     }
 
     private func sideBadge(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-            .foregroundStyle(V6Palette.paper.opacity(presentation == .notification ? 0.52 : 0.7))
+            .font(.system(size: 10.5, weight: .medium))
+            .foregroundStyle(.white.opacity(presentation == .notification ? 0.5 : 0.62))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(.white.opacity(presentation == .notification ? 0.045 : 0.06), in: Capsule())
+            .background(
+                .white.opacity(presentation == .notification ? 0.07 : 0.09),
+                in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+            )
     }
 
     private var summaryPromptLineText: String? {
@@ -1540,15 +1534,19 @@ private struct IslandSessionRow: View {
     private var agentBadgeTitle: String {
         switch session.tool {
         case .claudeCode:
-            "claude"
+            "Claude"
         case .geminiCLI:
-            "gemini"
+            "Gemini"
         case .qwenCode:
-            "qwen"
+            "Qwen"
         case .kimiCLI:
-            "kimi"
+            "Kimi"
+        case .openCode:
+            "OpenCode"
+        case .codebuddy:
+            "CodeBuddy"
         default:
-            session.tool.shortName.lowercased()
+            session.tool.shortName.capitalized
         }
     }
 
@@ -1562,7 +1560,7 @@ private struct IslandSessionRow: View {
             max(28, sideInset)
         case .tint:
             sideInset
-        case .animatedDot, .glyph:
+        case .pixel, .animatedDot, .glyph:
             sideInset
         }
     }
@@ -1577,7 +1575,7 @@ private struct IslandSessionRow: View {
             max(28, sideInset)
         case .tint:
             sideInset
-        case .animatedDot, .glyph:
+        case .pixel, .animatedDot, .glyph:
             sideInset + 30
         }
     }
@@ -1608,18 +1606,6 @@ private struct IslandSessionRow: View {
         }
 
         return V6Palette.paper.opacity(presence == .inactive ? 0.32 : 0.45)
-    }
-
-    private var notificationChromeOpacity: Double {
-        presentation == .notification ? 0.82 : 1
-    }
-
-    private var notificationBadgeFillOpacity: Double {
-        presentation == .notification ? 0.08 : 0.13
-    }
-
-    private var notificationBadgeStrokeOpacity: Double {
-        presentation == .notification ? 0.24 : 0.35
     }
 
     private func titleColor(for presence: IslandSessionPresence) -> Color {
@@ -1712,53 +1698,105 @@ private struct IslandSessionRow: View {
     // MARK: - Approval action area
 
     private var approvalActionBody: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(lang.t("approval.toolPermissionRequested"))
-                .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(V6Palette.paper.opacity(0.86))
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(IslandDesignPalette.Status.approvalAccent)
+                    .frame(width: 6, height: 6)
+                Text(lang.t("approval.permissionRequest"))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text(commandPreviewText)
-                    .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(V6Palette.paper.opacity(0.78))
-                    .fixedSize(horizontal: false, vertical: true)
-
-                if let path = session.permissionRequest?.affectedPath.trimmedForNotificationCard,
-                   !path.isEmpty {
-                    Text(path)
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(V6Palette.paper.opacity(0.42))
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(Image(systemName: "exclamationmark.triangle"))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(IslandDesignPalette.Status.approvalAccent)
+                Text(approvalToolTitle)
+                    .font(.system(size: 12.5, weight: .bold, design: .monospaced))
+                    .foregroundStyle(IslandDesignPalette.Status.approvalAccent)
+                if let target = approvalTargetText {
+                    Text(target)
+                        .font(.system(size: 12.5, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.9))
                         .lineLimit(1)
+                        .truncationMode(.middle)
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.white.opacity(0.045))
-            )
+
+            if let preview = approvalPreviewText {
+                Text(preview)
+                    .font(.system(size: 11.5, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.74))
+                    .lineLimit(6)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(Color.white.opacity(0.05))
+                    )
+            }
 
             HStack(spacing: 8) {
-                Button(session.permissionRequest?.secondaryActionTitle ?? lang.t("approval.deny")) { onApprove?(.deny) }
-                    .buttonStyle(IslandActionButtonStyle(kind: .secondary, expands: true))
-                Button(session.permissionRequest?.primaryActionTitle ?? lang.t("approval.allowOnce")) { onApprove?(.allowOnce) }
-                    .buttonStyle(IslandActionButtonStyle(kind: .warning, expands: true))
-                if let toolName = session.permissionRequest?.toolName {
-                    Button(lang.t("approval.alwaysAllow", toolName)) {
-                        let rule = ClaudePermissionRuleValue(toolName: toolName)
-                        let update = ClaudePermissionUpdate.addRules(
-                            destination: .session,
-                            rules: [rule],
-                            behavior: .allow
-                        )
-                        onApprove?(.allowWithUpdates([update]))
-                    }
-                    .buttonStyle(IslandActionButtonStyle(kind: .primary, expands: true))
+                Button {
+                    onApprove?(.deny)
+                } label: {
+                    ShortcutButtonLabel(
+                        title: session.permissionRequest?.secondaryActionTitle ?? lang.t("approval.deny"),
+                        shortcut: isActionable ? "⌘N" : nil
+                    )
                 }
+                .buttonStyle(IslandActionButtonStyle(kind: .secondary, expands: true))
+                .modifier(OptionalKeyboardShortcut(key: isActionable ? "n" : nil))
+
+                Button {
+                    onApprove?(.allowOnce)
+                } label: {
+                    ShortcutButtonLabel(
+                        title: session.permissionRequest?.primaryActionTitle ?? lang.t("approval.allowOnce"),
+                        shortcut: isActionable ? "⌘Y" : nil
+                    )
+                }
+                .buttonStyle(IslandActionButtonStyle(kind: .primary, expands: true))
+                .modifier(OptionalKeyboardShortcut(key: isActionable ? "y" : nil))
+            }
+
+            if let toolName = session.permissionRequest?.toolName {
+                Button(lang.t("approval.alwaysAllow", toolName)) {
+                    let rule = ClaudePermissionRuleValue(toolName: toolName)
+                    let update = ClaudePermissionUpdate.addRules(
+                        destination: .session,
+                        rules: [rule],
+                        behavior: .allow
+                    )
+                    onApprove?(.allowWithUpdates([update]))
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.white.opacity(0.42))
+                .frame(maxWidth: .infinity)
             }
         }
+    }
+
+    private var approvalToolTitle: String {
+        let tool = session.permissionRequest?.toolName?.trimmedForNotificationCard ?? ""
+        return tool.isEmpty ? lang.t("approval.toolFallback") : tool
+    }
+
+    private var approvalTargetText: String? {
+        if let path = session.permissionRequest?.affectedPath.trimmedForNotificationCard, !path.isEmpty {
+            return path
+        }
+        return nil
+    }
+
+    private var approvalPreviewText: String? {
+        let preview = commandPreviewText
+        guard !preview.isEmpty, preview != approvalTargetText else { return nil }
+        return preview
     }
 
     // MARK: - Question action area
@@ -1766,6 +1804,8 @@ private struct IslandSessionRow: View {
     private var questionActionBody: some View {
         StructuredQuestionPromptView(
             prompt: session.questionPrompt,
+            agentName: agentBadgeTitle,
+            shortcutsEnabled: isActionable,
             lang: lang,
             onAnswer: { onAnswer?($0) }
         )
@@ -1947,6 +1987,19 @@ private struct IslandSessionRow: View {
     private func statusIndicator(for presence: IslandSessionPresence) -> some View {
         let tint = statusTint(for: presence)
         switch stateIndicator {
+        case .pixel:
+            if presence == .inactive && !session.phase.requiresAttention {
+                Circle()
+                    .fill(tint.opacity(0.7))
+                    .frame(width: 7, height: 7)
+                    .frame(width: 20, height: 20)
+            } else {
+                PixelAgentGlyph(
+                    tint: tint,
+                    mood: PixelAgentGlyph.Mood(phase: session.phase, presence: presence)
+                )
+                .frame(width: 20, height: 20)
+            }
         case .animatedDot:
             if let interval = stateIndicator.timelineInterval(presence: presence, isActionable: isActionable) {
                 TimelineView(.periodic(from: .now, by: interval)) { context in
@@ -1991,7 +2044,14 @@ private struct IslandSessionRow: View {
             return Color.clear
         }
 
-        let base = isHighlighted ? Color.white.opacity(isActionable ? 0.06 : 0.04) : Color.clear
+        let base: Color
+        if isHighlighted {
+            base = Color.white.opacity(0.075)
+        } else if isActionable || (session.phase == .completed && presence != .inactive) {
+            base = Color.white.opacity(0.055)
+        } else {
+            base = Color.clear
+        }
         guard stateIndicator == .tint else { return base }
 
         let tintOpacity: Double
@@ -2119,6 +2179,8 @@ private struct IslandSessionRow: View {
 
 private struct StructuredQuestionPromptView: View {
     let prompt: QuestionPrompt?
+    var agentName: String
+    var shortcutsEnabled: Bool = false
     var lang: LanguageManager = .shared
     let onAnswer: (QuestionPromptResponse) -> Void
 
@@ -2129,10 +2191,18 @@ private struct StructuredQuestionPromptView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "bubble.left.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                Text(lang.t("question.agentAsks", agentName))
+                    .font(.system(size: 12.5, weight: .semibold))
+            }
+            .foregroundStyle(IslandDesignPalette.Status.questionAccent)
+
             if showsPromptTitle {
                 Text(promptTitle)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(IslandDesignPalette.Status.waitingForAnswer)
+                    .foregroundStyle(.white.opacity(0.9))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -2147,11 +2217,13 @@ private struct StructuredQuestionPromptView: View {
 
                 quickReplyField
 
-                Button(submitButtonTitle) {
-                    submitAnswer()
+                if !answersOnTap {
+                    Button(submitButtonTitle) {
+                        submitAnswer()
+                    }
+                    .buttonStyle(IslandActionButtonStyle(kind: canSubmit ? .primary : .secondary, expands: true))
+                    .disabled(!canSubmit)
                 }
-                .buttonStyle(IslandActionButtonStyle(kind: canSubmit ? .primary : .secondary, expands: true))
-                .disabled(!canSubmit)
             }
         }
         .padding(.horizontal, 10)
@@ -2180,8 +2252,8 @@ private struct StructuredQuestionPromptView: View {
             }
 
             Text(question.question)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.88))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white.opacity(0.92))
                 .fixedSize(horizontal: false, vertical: true)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -2206,20 +2278,21 @@ private struct StructuredQuestionPromptView: View {
         let showsFreeform = option.allowsFreeform && isSelected
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                toggle(option: option.label, for: question)
+                if answersOnTap, !option.allowsFreeform {
+                    onAnswer(QuestionPromptResponse(rawAnswer: option.label, answers: [question.question: option.label]))
+                } else {
+                    toggle(option: option.label, for: question)
+                }
             } label: {
                 HStack(spacing: 10) {
-                    Text("\(optionIndex + 1)")
+                    Text(keycapTitle(optionIndex: optionIndex, question: question))
                         .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(isSelected ? .black.opacity(0.82) : V6Palette.paper.opacity(0.42))
-                        .frame(width: 22, height: 20)
+                        .foregroundStyle(isSelected ? .black.opacity(0.82) : IslandDesignPalette.Status.questionAccent.opacity(0.85))
+                        .frame(minWidth: 26, minHeight: 20)
+                        .padding(.horizontal, 2)
                         .background(
                             RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(isSelected ? V6Palette.paper.opacity(0.88) : Color.white.opacity(0.045))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .strokeBorder(.white.opacity(isSelected ? 0 : 0.08))
+                                .fill(isSelected ? V6Palette.paper.opacity(0.88) : IslandDesignPalette.Status.questionAccent.opacity(0.16))
                         )
 
                     VStack(alignment: .leading, spacing: 1) {
@@ -2244,10 +2317,11 @@ private struct StructuredQuestionPromptView: View {
                     }
                 }
                 .contentShape(Rectangle())
-                .padding(.vertical, 5)
+                .padding(.vertical, 6)
                 .padding(.horizontal, 11)
             }
             .buttonStyle(.plain)
+            .modifier(OptionalKeyboardShortcut(key: optionShortcutKey(optionIndex: optionIndex, question: question)))
 
             if showsFreeform {
                 Divider()
@@ -2331,6 +2405,24 @@ private struct StructuredQuestionPromptView: View {
     }
 
     // MARK: - Helpers
+
+    private var answersOnTap: Bool {
+        guard structuredQuestions.count == 1, let question = structuredQuestions.first else { return false }
+        return !question.multiSelect
+    }
+
+    private func optionShortcutKey(optionIndex: Int, question: QuestionPromptItem) -> Character? {
+        guard shortcutsEnabled,
+              structuredQuestions.first?.question == question.question,
+              optionIndex < 9 else { return nil }
+        return Character(String(optionIndex + 1))
+    }
+
+    private func keycapTitle(optionIndex: Int, question: QuestionPromptItem) -> String {
+        optionShortcutKey(optionIndex: optionIndex, question: question) == nil
+            ? "\(optionIndex + 1)"
+            : "⌘\(optionIndex + 1)"
+    }
 
     private var structuredQuestions: [QuestionPromptItem] {
         if let questions = prompt?.questions, !questions.isEmpty {
@@ -2480,10 +2572,8 @@ private struct StructuredQuestionPromptView: View {
         if isSelected {
             return V6Palette.paper.opacity(0.10)
         }
-        if isHovered {
-            return Color.white.opacity(0.065)
-        }
-        return Color.white.opacity(0.028)
+        let accent = IslandDesignPalette.Status.questionAccent
+        return accent.opacity(isHovered ? 0.14 : 0.07)
     }
 
     private func optionStrokeColor(isSelected: Bool, isHovered: Bool) -> Color {
@@ -2491,9 +2581,9 @@ private struct StructuredQuestionPromptView: View {
             return V6Palette.paper.opacity(0.36)
         }
         if isHovered {
-            return .white.opacity(0.13)
+            return IslandDesignPalette.Status.questionAccent.opacity(0.3)
         }
-        return .white.opacity(0.045)
+        return .clear
     }
 
     private func trimmedFreeform(for question: QuestionPromptItem, option: QuestionOption) -> String {
@@ -2613,6 +2703,34 @@ private struct IslandCompactButtonStyle: ButtonStyle {
                 in: Capsule()
             )
             .opacity(configuration.isPressed ? 0.7 : 1)
+    }
+}
+
+private struct ShortcutButtonLabel: View {
+    let title: String
+    let shortcut: String?
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Text(title)
+            if let shortcut {
+                Text(shortcut)
+                    .font(.system(size: 10, weight: .medium))
+                    .opacity(0.5)
+            }
+        }
+    }
+}
+
+private struct OptionalKeyboardShortcut: ViewModifier {
+    let key: Character?
+
+    func body(content: Content) -> some View {
+        if let key {
+            content.keyboardShortcut(KeyEquivalent(key), modifiers: .command)
+        } else {
+            content
+        }
     }
 }
 

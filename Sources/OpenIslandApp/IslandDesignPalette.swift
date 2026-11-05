@@ -8,6 +8,8 @@ enum IslandDesignPalette {
         static let waitingForAnswer = Color(red: 255.0 / 255.0, green: 213.0 / 255.0, blue: 138.0 / 255.0)
         static let running = Color(red: 110.0 / 255.0, green: 167.0 / 255.0, blue: 255.0 / 255.0)
         static let completed = Color(red: 111.0 / 255.0, green: 185.0 / 255.0, blue: 130.0 / 255.0)
+        static let approvalAccent = Color(red: 240.0 / 255.0, green: 128.0 / 255.0, blue: 48.0 / 255.0)
+        static let questionAccent = Color(red: 56.0 / 255.0, green: 189.0 / 255.0, blue: 222.0 / 255.0)
         static let inactive = V6Palette.paper.opacity(0.38)
         static let idle = V6Palette.paper.opacity(0.35)
 

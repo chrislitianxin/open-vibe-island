@@ -80,6 +80,7 @@
 "settings.appearance.usageDisplay.compact" = "紧凑";
 "settings.appearance.stateIndicator.title" = "03 · 会话状态";
 "settings.appearance.stateIndicator.note" = "控制列表行如何呈现运行、等待和完成状态。";
+"settings.appearance.stateIndicator.pixel" = "像素";
 "settings.appearance.stateIndicator.animatedDot" = "动效点";
 "settings.appearance.stateIndicator.bar" = "竖条";
 "settings.appearance.stateIndicator.glyph" = "图标";
@@ -202,6 +203,9 @@
 "island.usageWaiting" = "等待用量数据";
 
 /* Island Panel - Approval */
+"approval.permissionRequest" = "权限请求";
+"approval.toolFallback" = "工具";
+"question.agentAsks" = "%@ 提问";
 "approval.toolPermissionRequested" = "请求工具权限";
 "approval.deny" = "拒绝";
 "approval.allowOnce" = "允许一次";

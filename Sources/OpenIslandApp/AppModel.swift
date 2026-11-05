@@ -611,7 +611,7 @@ final class AppModel {
                 rawValue: defaults.string(forKey: appearanceDefaultsKey(profile, "stateIndicator"))
                     ?? defaults.string(forKey: legacyIslandSessionStateIndicatorDefaultsKey)
                     ?? ""
-            ) ?? .animatedDot,
+            ) ?? .pixel,
             sessionGroup: IslandSessionGroup(
                 rawValue: defaults.string(forKey: appearanceDefaultsKey(profile, "sessionGroup"))
                     ?? defaults.string(forKey: legacyIslandSessionGroupDefaultsKey)

@@ -80,6 +80,7 @@
 "settings.appearance.usageDisplay.compact" = "Compact";
 "settings.appearance.stateIndicator.title" = "03 · Session state";
 "settings.appearance.stateIndicator.note" = "How rows show running, waiting, and completed state.";
+"settings.appearance.stateIndicator.pixel" = "Pixel";
 "settings.appearance.stateIndicator.animatedDot" = "Animated dot";
 "settings.appearance.stateIndicator.bar" = "Bar";
 "settings.appearance.stateIndicator.glyph" = "Glyph";
@@ -202,6 +203,9 @@
 "island.usageWaiting" = "Usage waiting";
 
 /* Island Panel - Approval */
+"approval.permissionRequest" = "Permission Request";
+"approval.toolFallback" = "Tool";
+"question.agentAsks" = "%@ asks";
 "approval.toolPermissionRequested" = "Tool permission requested";
 "approval.deny" = "No";
 "approval.allowOnce" = "Yes";
