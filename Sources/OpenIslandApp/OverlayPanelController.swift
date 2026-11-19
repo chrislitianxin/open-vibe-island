@@ -256,6 +256,10 @@ final class OverlayPanelController {
             cancelHoverOpen()
         }
 
+        if model.notchStatus == .opened {
+            model.updatePointerOverOpenedIsland(isPointInExpandedArea(screenLocation))
+        }
+
         let shouldTrackNotificationPointer = model.notchStatus == .opened
             && model.notchOpenReason == .notification
             && model.showsNotificationCard

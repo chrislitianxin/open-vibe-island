@@ -35,12 +35,14 @@ struct PromptHotKeyPlanTests {
     private static func plan(
         enabled: Bool = true,
         status: NotchStatus = .opened,
+        pointerOver: Bool = true,
         surface: String? = nil,
         _ sessions: [AgentSession]
     ) -> PromptHotKeyPlan? {
         PromptHotKeyPlan.make(
             isEnabled: enabled,
             notchStatus: status,
+            isPointerOverIsland: pointerOver,
             surfaceSessionID: surface,
             sessions: sessions
         )
@@ -58,6 +60,13 @@ struct PromptHotKeyPlanTests {
         #expect(Self.plan(status: .closed, surface: "a", sessions) == nil)
         #expect(Self.plan(status: .popping, surface: "a", sessions) == nil)
         #expect(Self.plan(enabled: false, surface: "a", sessions) == nil)
+    }
+
+    @Test
+    func autoOpenedCardHoldsNoShortcutsUntilThePointerIsOnIt() {
+        let sessions = [Self.session(id: "a", phase: .waitingForApproval)]
+        #expect(Self.plan(pointerOver: false, surface: "a", sessions) == nil)
+        #expect(Self.plan(pointerOver: true, surface: "a", sessions) != nil)
     }
 
     @Test

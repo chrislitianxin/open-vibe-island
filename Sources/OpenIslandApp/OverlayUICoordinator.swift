@@ -12,6 +12,7 @@ final class OverlayUICoordinator {
     var notchStatus: NotchStatus = .closed
     var notchOpenReason: NotchOpenReason?
     var islandSurface: IslandSurface = .sessionList()
+    private(set) var isPointerOverOpenedIsland = false
     var isOverlayVisible: Bool { notchStatus != .closed }
 
     var overlayDisplayOptions: [OverlayDisplayOption] = []
@@ -171,6 +172,9 @@ final class OverlayUICoordinator {
                 guard let self else { return }
                 self.autoCollapseSurfaceHasBeenEntered = false
                 self.isPointerInsideIslandSurface = false
+                self.updatePointerOverOpenedIsland(
+                    self.overlayPanelController.isPointInExpandedArea(self.currentPointerLocation)
+                )
                 self.updateNotificationAutoCollapse()
             },
             onPlacementResolved: { [weak self] in
@@ -193,6 +197,7 @@ final class OverlayUICoordinator {
             afterStateChange: { [weak self] in
                 self?.autoCollapseSurfaceHasBeenEntered = false
                 self?.isPointerInsideIslandSurface = false
+                self?.updatePointerOverOpenedIsland(false)
                 self?.appModel?.measuredNotificationContentHeight = 0
             }
         )
@@ -339,6 +344,12 @@ final class OverlayUICoordinator {
 
     var showsNotificationCard: Bool {
         islandSurface.isNotificationCard
+    }
+
+    func updatePointerOverOpenedIsland(_ isOver: Bool) {
+        let value = isOver && notchStatus == .opened
+        guard value != isPointerOverOpenedIsland else { return }
+        isPointerOverOpenedIsland = value
     }
 
     func notePointerInsideIslandSurface() {

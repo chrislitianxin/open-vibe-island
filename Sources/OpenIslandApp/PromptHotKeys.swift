@@ -30,9 +30,9 @@ enum PromptHotKeyAction: Equatable, Hashable, Sendable {
 }
 
 /// The ⌘-shortcuts to hold while the opened island shows a prompt, and the
-/// session they act on. Hotkeys are registered system-wide only while a plan
-/// exists, so they never shadow other apps' shortcuts while the island is
-/// closed.
+/// session they act on. Hotkeys are registered system-wide only while the
+/// pointer is over the opened island: a notification card that opens by
+/// itself must not take ⌘N, ⌘1–9 or ⌘Y from the app the user is typing in.
 struct PromptHotKeyPlan: Equatable {
     var sessionID: String
     var actions: [PromptHotKeyAction]
@@ -40,10 +40,11 @@ struct PromptHotKeyPlan: Equatable {
     static func make(
         isEnabled: Bool,
         notchStatus: NotchStatus,
+        isPointerOverIsland: Bool,
         surfaceSessionID: String?,
         sessions: [AgentSession]
     ) -> PromptHotKeyPlan? {
-        guard isEnabled, notchStatus == .opened else { return nil }
+        guard isEnabled, notchStatus == .opened, isPointerOverIsland else { return nil }
 
         let target = surfaceSessionID.flatMap { id in sessions.first { $0.id == id } }
             ?? sessions.first { $0.phase.requiresAttention }
@@ -117,6 +118,7 @@ final class PromptHotKeyCoordinator {
             PromptHotKeyPlan.make(
                 isEnabled: model.promptHotKeysEnabled,
                 notchStatus: model.notchStatus,
+                isPointerOverIsland: model.isPointerOverOpenedIsland,
                 surfaceSessionID: model.islandSurface.sessionID,
                 sessions: model.islandListSessions
             )

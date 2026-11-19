@@ -29,7 +29,7 @@
 "settings.general.suppressFrontmostNotifications" = "Suppress notifications for focused sessions";
 "settings.general.showCodexUsage" = "Show Codex usage";
 "settings.general.promptHotKeys" = "Prompt keyboard shortcuts";
-"settings.general.promptHotKeysDesc" = "While the island shows a prompt: ⌘Y allow, ⌘N deny, ⌘1–9 pick an answer, ⌘J jump to the session. Works from any app.";
+"settings.general.promptHotKeysDesc" = "While the pointer is on an island that shows a prompt: ⌘Y allow, ⌘N deny, ⌘1–9 pick an answer, ⌘J jump to the session. Works from any app.";
 "settings.general.completionReply" = "Reply from completion card";
 "settings.general.cliHooks" = "CLI Hooks";
 "settings.general.activated" = "Activated";
