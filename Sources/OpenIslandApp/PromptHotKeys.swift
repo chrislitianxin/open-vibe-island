@@ -29,10 +29,10 @@ enum PromptHotKeyAction: Equatable, Hashable, Sendable {
     ].map(UInt32.init)
 }
 
-/// The ⌘-shortcuts to hold while the opened island shows a prompt, and the
-/// session they act on. Hotkeys are registered system-wide only while the
-/// pointer is over the opened island: a notification card that opens by
-/// itself must not take ⌘N, ⌘1–9 or ⌘Y from the app the user is typing in.
+/// The ⌘-shortcuts to hold while the pointer is on the opened island, and the
+/// session they act on. A card that opens by itself must not take ⌘N, ⌘1–9 or
+/// ⌘Y from the app the user is typing in, so `IslandPointerPresence` arms only
+/// once the pointer is on the island.
 struct PromptHotKeyPlan: Equatable {
     var sessionID: String
     var actions: [PromptHotKeyAction]
@@ -42,12 +42,16 @@ struct PromptHotKeyPlan: Equatable {
         notchStatus: NotchStatus,
         isPointerOverIsland: Bool,
         surfaceSessionID: String?,
-        sessions: [AgentSession]
+        state: SessionState,
+        listSessions: [AgentSession]
     ) -> PromptHotKeyPlan? {
         guard isEnabled, notchStatus == .opened, isPointerOverIsland else { return nil }
 
-        let target = surfaceSessionID.flatMap { id in sessions.first { $0.id == id } }
-            ?? sessions.first { $0.phase.requiresAttention }
+        let target = if let surfaceSessionID {
+            state.session(id: surfaceSessionID)
+        } else {
+            listSessions.first { $0.phase.requiresAttention }
+        }
         guard let target else { return nil }
 
         var actions: [PromptHotKeyAction] = []
@@ -82,6 +86,21 @@ struct PromptHotKeyPlan: Equatable {
             .filter { $0 < PromptHotKeyAction.maxOptionCount && !options[$0].allowsFreeform }
     }
 
+    static func effect(of action: PromptHotKeyAction, on session: AgentSession) -> PromptHotKeyEffect? {
+        switch action {
+        case .approve, .deny:
+            guard session.phase == .waitingForApproval else { return nil }
+            return .permission(allow: action == .approve)
+        case let .selectOption(index):
+            guard session.phase == .waitingForAnswer,
+                  let prompt = session.questionPrompt,
+                  let response = answer(selecting: index, in: prompt) else { return nil }
+            return .answer(response)
+        case .jump:
+            return .jump
+        }
+    }
+
     static func answer(selecting index: Int, in prompt: QuestionPrompt) -> QuestionPromptResponse? {
         if prompt.questions.isEmpty {
             guard prompt.options.indices.contains(index) else { return nil }
@@ -92,6 +111,38 @@ struct PromptHotKeyPlan: Equatable {
               question.options.indices.contains(index) else { return nil }
         let label = question.options[index].label
         return QuestionPromptResponse(rawAnswer: label, answers: [question.question: label])
+    }
+}
+
+enum PromptHotKeyEffect: Equatable {
+    case permission(allow: Bool)
+    case answer(QuestionPromptResponse)
+    case jump
+}
+
+/// Whether the pointer is on the opened island. A card that opens by itself
+/// under a resting pointer does not count until the pointer leaves and comes
+/// back, so a card that appears where the user is already clicking does not
+/// arm the hotkeys.
+struct IslandPointerPresence: Equatable {
+    private(set) var isOver = false
+    private var awaitsEntry = false
+
+    mutating func opened(byNotification: Bool, pointerInside: Bool) {
+        awaitsEntry = byNotification && pointerInside
+        isOver = pointerInside && !awaitsEntry
+    }
+
+    mutating func moved(inside: Bool) {
+        if !inside {
+            awaitsEntry = false
+        }
+        isOver = inside && !awaitsEntry
+    }
+
+    mutating func closed() {
+        isOver = false
+        awaitsEntry = false
     }
 }
 
@@ -120,7 +171,8 @@ final class PromptHotKeyCoordinator {
                 notchStatus: model.notchStatus,
                 isPointerOverIsland: model.isPointerOverOpenedIsland,
                 surfaceSessionID: model.islandSurface.sessionID,
-                sessions: model.islandListSessions
+                state: model.state,
+                listSessions: model.islandListSessions
             )
         } onChange: { [weak self] in
             Task { @MainActor in self?.refresh() }
@@ -147,20 +199,15 @@ final class PromptHotKeyCoordinator {
     }
 
     private func perform(_ action: PromptHotKeyAction, sessionID: String) {
-        guard let model, let session = model.state.session(id: sessionID) else { return }
+        guard let model,
+              let session = model.state.session(id: sessionID),
+              let effect = PromptHotKeyPlan.effect(of: action, on: session) else { return }
         promptHotKeyLog.info("Prompt hotkey \(String(describing: action), privacy: .public) for session \(sessionID, privacy: .public)")
 
-        switch action {
-        case .approve:
-            guard session.phase == .waitingForApproval else { return }
-            model.approvePermission(for: sessionID, action: .allowOnce)
-        case .deny:
-            guard session.phase == .waitingForApproval else { return }
-            model.approvePermission(for: sessionID, action: .deny)
-        case let .selectOption(index):
-            guard session.phase == .waitingForAnswer,
-                  let prompt = session.questionPrompt,
-                  let response = PromptHotKeyPlan.answer(selecting: index, in: prompt) else { return }
+        switch effect {
+        case let .permission(allow):
+            model.approvePermission(for: sessionID, action: allow ? .allowOnce : .deny)
+        case let .answer(response):
             model.answerQuestion(for: sessionID, answer: response)
         case .jump:
             model.jumpToSession(session)
@@ -223,7 +270,7 @@ final class GlobalHotKeyRegistrar {
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
         )
-        InstallEventHandler(
+        let status = InstallEventHandler(
             GetApplicationEventTarget(),
             { _, event, userData in
                 guard let event, let userData else { return OSStatus(eventNotHandledErr) }
@@ -252,5 +299,8 @@ final class GlobalHotKeyRegistrar {
             Unmanaged.passUnretained(self).toOpaque(),
             &eventHandler
         )
+        if status != noErr {
+            promptHotKeyLog.error("InstallEventHandler failed with status \(status)")
+        }
     }
 }

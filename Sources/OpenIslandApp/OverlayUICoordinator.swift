@@ -12,7 +12,8 @@ final class OverlayUICoordinator {
     var notchStatus: NotchStatus = .closed
     var notchOpenReason: NotchOpenReason?
     var islandSurface: IslandSurface = .sessionList()
-    private(set) var isPointerOverOpenedIsland = false
+    private(set) var pointerPresence = IslandPointerPresence()
+    var isPointerOverOpenedIsland: Bool { pointerPresence.isOver }
     var isOverlayVisible: Bool { notchStatus != .closed }
 
     var overlayDisplayOptions: [OverlayDisplayOption] = []
@@ -172,9 +173,10 @@ final class OverlayUICoordinator {
                 guard let self else { return }
                 self.autoCollapseSurfaceHasBeenEntered = false
                 self.isPointerInsideIslandSurface = false
-                self.updatePointerOverOpenedIsland(
-                    self.overlayPanelController.isPointInExpandedArea(self.currentPointerLocation)
-                )
+                let pointerInside = self.overlayPanelController.isPointInExpandedArea(self.currentPointerLocation)
+                self.updatePointerPresence {
+                    $0.opened(byNotification: reason == .notification, pointerInside: pointerInside)
+                }
                 self.updateNotificationAutoCollapse()
             },
             onPlacementResolved: { [weak self] in
@@ -197,7 +199,7 @@ final class OverlayUICoordinator {
             afterStateChange: { [weak self] in
                 self?.autoCollapseSurfaceHasBeenEntered = false
                 self?.isPointerInsideIslandSurface = false
-                self?.updatePointerOverOpenedIsland(false)
+                self?.updatePointerPresence { $0.closed() }
                 self?.appModel?.measuredNotificationContentHeight = 0
             }
         )
@@ -347,9 +349,15 @@ final class OverlayUICoordinator {
     }
 
     func updatePointerOverOpenedIsland(_ isOver: Bool) {
-        let value = isOver && notchStatus == .opened
-        guard value != isPointerOverOpenedIsland else { return }
-        isPointerOverOpenedIsland = value
+        guard notchStatus == .opened else { return }
+        updatePointerPresence { $0.moved(inside: isOver) }
+    }
+
+    private func updatePointerPresence(_ change: (inout IslandPointerPresence) -> Void) {
+        var next = pointerPresence
+        change(&next)
+        guard next != pointerPresence else { return }
+        pointerPresence = next
     }
 
     func notePointerInsideIslandSurface() {

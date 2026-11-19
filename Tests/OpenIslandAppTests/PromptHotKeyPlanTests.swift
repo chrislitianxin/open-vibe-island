@@ -37,6 +37,7 @@ struct PromptHotKeyPlanTests {
         status: NotchStatus = .opened,
         pointerOver: Bool = true,
         surface: String? = nil,
+        list: [AgentSession]? = nil,
         _ sessions: [AgentSession]
     ) -> PromptHotKeyPlan? {
         PromptHotKeyPlan.make(
@@ -44,7 +45,8 @@ struct PromptHotKeyPlanTests {
             notchStatus: status,
             isPointerOverIsland: pointerOver,
             surfaceSessionID: surface,
-            sessions: sessions
+            state: SessionState(sessions: sessions),
+            listSessions: list ?? sessions
         )
     }
 
@@ -67,6 +69,15 @@ struct PromptHotKeyPlanTests {
         let sessions = [Self.session(id: "a", phase: .waitingForApproval)]
         #expect(Self.plan(pointerOver: false, surface: "a", sessions) == nil)
         #expect(Self.plan(pointerOver: true, surface: "a", sessions) != nil)
+    }
+
+    @Test
+    func cardActsOnlyOnItsOwnSession() {
+        let card = Self.session(id: "card", phase: .completed)
+        let pending = Self.session(id: "pending", phase: .waitingForApproval)
+        #expect(Self.plan(surface: "card", list: [pending], [card, pending])
+            == PromptHotKeyPlan(sessionID: "card", actions: [.jump]))
+        #expect(Self.plan(surface: "gone", [pending]) == nil)
     }
 
     @Test
@@ -137,5 +148,61 @@ struct PromptHotKeyPlanTests {
         #expect(PromptHotKeyPlan.answer(selecting: 0, in: legacy)
             == QuestionPromptResponse(rawAnswer: "Prod", answers: ["Env?": "Prod"]))
         #expect(PromptHotKeyPlan.answer(selecting: 5, in: legacy) == nil)
+        #expect(PromptHotKeyPlan.answer(selecting: 5, in: structured) == nil)
+    }
+
+    @Test
+    func allowAndDenyMapToTheirPermissionDecision() {
+        let approval = Self.session(id: "a", phase: .waitingForApproval)
+        #expect(PromptHotKeyPlan.effect(of: .approve, on: approval) == .permission(allow: true))
+        #expect(PromptHotKeyPlan.effect(of: .deny, on: approval) == .permission(allow: false))
+        #expect(PromptHotKeyPlan.effect(of: .jump, on: approval) == .jump)
+        #expect(PromptHotKeyPlan.effect(of: .selectOption(0), on: approval) == nil)
+    }
+
+    @Test
+    func resolvedPromptsIgnoreTheirKeys() {
+        let done = Self.session(id: "a", phase: .completed)
+        #expect(PromptHotKeyPlan.effect(of: .approve, on: done) == nil)
+        #expect(PromptHotKeyPlan.effect(of: .deny, on: done) == nil)
+        #expect(PromptHotKeyPlan.effect(of: .selectOption(0), on: done) == nil)
+
+        let question = Self.session(
+            id: "q",
+            phase: .waitingForAnswer,
+            questionPrompt: QuestionPrompt(title: "Env?", options: ["Prod", "Staging"])
+        )
+        #expect(PromptHotKeyPlan.effect(of: .selectOption(1), on: question)
+            == .answer(QuestionPromptResponse(rawAnswer: "Staging", answers: ["Env?": "Staging"])))
+        #expect(PromptHotKeyPlan.effect(of: .approve, on: question) == nil)
+    }
+
+    @Test
+    func cardOpenedUnderTheRestingPointerArmsOnlyAfterThePointerReenters() {
+        var presence = IslandPointerPresence()
+        presence.opened(byNotification: true, pointerInside: true)
+        #expect(!presence.isOver)
+        presence.moved(inside: true)
+        #expect(!presence.isOver)
+        presence.moved(inside: false)
+        #expect(!presence.isOver)
+        presence.moved(inside: true)
+        #expect(presence.isOver)
+        presence.closed()
+        #expect(!presence.isOver)
+    }
+
+    @Test
+    func userOpenedIslandArmsWhileThePointerIsOnIt() {
+        var presence = IslandPointerPresence()
+        presence.opened(byNotification: false, pointerInside: true)
+        #expect(presence.isOver)
+        presence.moved(inside: false)
+        #expect(!presence.isOver)
+
+        presence.opened(byNotification: true, pointerInside: false)
+        #expect(!presence.isOver)
+        presence.moved(inside: true)
+        #expect(presence.isOver)
     }
 }
